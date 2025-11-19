@@ -1,0 +1,159 @@
+# General
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.out
+*.tmp
+*.bak
+# OS files
+ehthumbs.db
+Icon
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.python-version
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+.venv/*
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+*.egg
+*.whl
+.installed.cfg
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.noseids
+coverage.xml
+
+# Flask / Django / Python runtime
+instance/
+.webassets-cache
+celerybeat-schedule
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+secrets.yml
+secrets.yaml
+*.key
+*.pem
+*.crt
+*.cer
+*.pfx
+*.jks
+*.p12
+*.der
+*.asc
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
+/package-lock.json
+/yarn.lock
+/pnpm-lock.yaml
+/build/
+/dist/
+/.expo/
+
+# Frontend specific (project has `frontend/`)
+frontend/node_modules/
+frontend/build/
+frontend/.cache/
+
+# Backend specific
+backend/__pycache__/
+backend/.pytest_cache/
+
+# Terraform
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+override.tf
+override.tf.json
+*_override.tf
+crash.log
+.terraform.lock.hcl
+
+# AWS / Deployment
+# Keep config files like `appspec.yaml` and `buildspec.yaml` tracked.
+# Ignore local deployment/build bundles, credentials and caches
+.aws-sam/
+.aws/
+*.credentials
+*.aws/credentials
+*.aws/config
+
+# Docker
+docker-compose.override.yml
+docker-compose.*.yml
+docker-images/
+*.dockerignore
+docker-*.tar
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.user
+*.userosscache
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+
+# JetBrains
+/.idea/
+*.iml
+
+# Visual Studio Code workspace storage
+.vscode/*.code-workspace
+
+# Others
+*.sqlite3
+*.db
+*.sql
+
+# Build artifacts and temporary files
+/tmp/
+/temp/
+*.cache
+*.pid
+
+# Credentials and keys (catch-all)
+*.pem
+*.key
+*.crt
+*.asc
+
