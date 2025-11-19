@@ -1,0 +1,90 @@
+name: "Application CI/CD"
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - "backend/**"
+            - "frontend/**"
+
+jobs:
+    build:
+        name: "Build Artifacts"
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: "16"
+            - name: Install Frontend Dependencies & Build
+              run: |
+                  cd frontend
+                  npm ci
+                  npm run build
+
+            - name: Upload Frontend Artifact
+              uses: actions/upload-artifact@v3
+              with:
+                  name: frontend-build
+                  path: frontend/build
+
+            - name: Upload Backend Artifact
+              uses: actions/upload-artifact@v3
+              with:
+                  name: backend-package
+                  path: |
+                      backend/app.py
+                      backend/requirements.txt
+                      backend/appspec-backend.yml
+                      backend/scripts/
+
+    deploy:
+        name: "Deploy to EC2"
+        needs: build
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+
+            - name: Configure AWS Credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ secrets.AWS_REGION }}
+
+            - name: Download Frontend Artifact
+              uses: actions/download-artifact@v3
+              with:
+                  name: frontend-build
+                  path: ./frontend-build
+
+            - name: Download Backend Artifact
+              uses: actions/download-artifact@v3
+              with:
+                  name: backend-package
+                  path: ./backend-package
+
+            - name: Deploy Backend to CodeDeploy
+              run: |
+                  aws deploy create-deployment \
+                    --application-name App-Backend \
+                    --deployment-group-name Backend-Servers-Group \
+                    --description "Deployment from GitHub Actions ${{ github.sha }}" \
+                    --s3-location bucket=${{ secrets.S3_BUCKET_FOR_DEPLOYMENTS }},key=backend-${{ github.sha }}.zip,bundleType=zip
+              env:
+                  S3_BUCKET_FOR_DEPLOYMENTS: your-codedeploy-bucket-name
+
+            - name: Deploy Frontend to CodeDeploy
+              run: |
+                  aws deploy create-deployment \
+                    --application-name App-Frontend \
+                    --deployment-group-name Frontend-Servers-Group \
+                    --description "Deployment from GitHub Actions ${{ github.sha }}" \
+                    --s3-location bucket=${{ secrets.S3_BUCKET_FOR_DEPLOYMENTS }},key=frontend-${{ github.sha }}.zip,bundleType=zip
