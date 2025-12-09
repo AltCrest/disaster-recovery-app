@@ -1,18 +1,13 @@
 version: 0.2
-
 phases:
-  install:
-    runtime-versions:
-      python: 3.8
   build:
     commands:
-      - echo "No build commands needed for backend"
-  post_build:
-    commands:
-      - echo "Packaging application..."
+      - echo "No build steps needed for backend, just packaging..."
 artifacts:
+  # This tells CodeBuild to look for files inside the 'backend' directory
+  base-directory: 'backend'
   files:
-    - 'backend/app.py'
-    - 'backend/requirements.txt'
-    - 'appspec.yml'
-    - 'scripts/*'
+    - 'app.py'
+    - 'requirements.txt'
+    - 'appspec.yml' # This now refers to backend/appspec.yml
+    - 'scripts/**/*' # This now refers to backend/scripts/

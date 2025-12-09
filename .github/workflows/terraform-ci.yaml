@@ -1,5 +1,9 @@
-name: "Terraform CI"
+# .github/workflows/terraform-ci.yml
 
+name: "Terraform Infrastructure CI/CD"
+
+# This workflow is triggered on pushes to the 'main' branch, but ONLY if
+# one or more files inside the 'terraform/' directory have been changed.
 on:
     push:
         branches:
@@ -9,34 +13,53 @@ on:
 
 jobs:
     terraform:
-        name: "Apply Terraform"
+        name: "Terraform Plan and Apply"
         runs-on: ubuntu-latest
+        # These permissions are needed for secure auth to AWS
+        permissions:
+            id-token: write
+            contents: read
+
+        # Define default working directory for all steps
+        defaults:
+            run:
+                working-directory: ./terraform
 
         steps:
-            - name: Checkout
+            # Step 1: Check out the repository code so the workflow can access it.
+            - name: Checkout Repository
               uses: actions/checkout@v3
 
+            # Step 2: Configure AWS credentials using the secrets stored in your GitHub repository.
             - name: Configure AWS Credentials
               uses: aws-actions/configure-aws-credentials@v2
               with:
                   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                  aws-region: ${{ secrets.AWS_REGION }}
+                  aws-region: ${{ secrets.AWS_REGION }} # e.g., us-east-1
 
+            # Step 3: Set up the specific version of Terraform you want to use.
             - name: Setup Terraform
               uses: hashicorp/setup-terraform@v2
               with:
-                  terraform_version: 1.3.0
+                  terraform_version: 1.3.0 # You can change this to your preferred version
 
+            # Step 4: Run 'terraform init' to initialize the backend and download providers.
             - name: Terraform Init
+              id: init
               run: terraform init
-              working-directory: ./terraform
 
+            # Step 5: Run 'terraform plan' to create an execution plan.
+            # The '-out=tfplan' flag saves the plan to a file, which is a best practice for ensuring
+            # that what you apply is exactly what you planned.
             - name: Terraform Plan
+              id: plan
               run: terraform plan -input=false -out=tfplan
-              working-directory: ./terraform
 
+            # Step 6: Run 'terraform apply' to execute the plan.
+            # This step will only run on a push to the 'main' branch.
+            # The '-auto-approve' flag is necessary for automation, as there is no user to type 'yes'.
             - name: Terraform Apply
+              id: apply
               if: github.ref == 'refs/heads/main'
               run: terraform apply -auto-approve -input=false tfplan
-              working-directory: ./terraform

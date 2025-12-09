@@ -1,0 +1,117 @@
+name: "Unified Application CI/CD"
+
+# This workflow runs on every push to the main branch.
+# The logic inside the jobs will decide what to do.
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  # JOB 1: Check which files have changed. This is the "brain".
+  check-paths:
+    name: "Check for code changes"
+    runs-on: ubuntu-latest
+    # This job outputs 'frontend' and 'backend' variables that will be 'true' or 'false'.
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Use paths-filter action
+        id: filter
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            backend:
+              - 'backend/**'
+
+  # JOB 2: Deploy the Backend Application
+  deploy-backend:
+    name: "Deploy Backend"
+    # This job will ONLY run if the 'check-paths' job ran AND its 'backend' output was 'true'.
+    needs: check-paths
+    if: needs.check-paths.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create backend deployment package
+        run: |
+          cd backend
+          zip -r ../backend-deployment.zip . -x "venv/*" "__pycache__/*"
+
+      - name: Upload backend package to S3
+        run: |
+          aws s3 cp backend-deployment.zip s3://${{ secrets.S3_BUCKET_FOR_DEPLOYMENTS }}/backend-${{ github.sha }}.zip
+
+      - name: Create Backend CodeDeploy Deployment
+        run: |
+          aws deploy create-deployment \
+            --application-name App-Backend \
+            --deployment-group-name Backend-Servers-Group \
+            --description "Deployment from GitHub Actions for commit ${{ github.sha }}" \
+            --s3-location bucket=${{ secrets.S3_BUCKET_FOR_DEPLOYMENTS }},key=backend-${{ github.sha }}.zip,bundleType=zip
+
+  # JOB 3: Deploy the Frontend Application
+  deploy-frontend:
+    name: "Deploy Frontend"
+    # This job will ONLY run if the 'check-paths' job ran AND its 'frontend' output was 'true'.
+    needs: check-paths
+    if: needs.check-paths.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16"
+
+      - name: Install dependencies and build frontend
+        run: |
+          cd frontend
+          npm ci # 'ci' is faster and safer for pipelines than 'install'
+          npm run build
+
+      - name: Prepare frontend deployment package
+        run: |
+          cp frontend/appspec.yml frontend/build/appspec.yml
+          cp -r frontend/scripts frontend/build/
+          cd frontend/build
+          zip -r ../../frontend-deployment.zip .
+
+      - name: Upload frontend package to S3
+        run: |
+          aws s3 cp frontend-deployment.zip s3://${{ secrets.S3_BUCKET_FOR_DEPLOYMENTS }}/frontend-${{ github.sha }}.zip
+
+      - name: Create Frontend CodeDeploy Deployment
+        run: |
+          aws deploy create-deployment \
+            --application-name App-Frontend \
+            --deployment-group-name Frontend-Servers-Group \
+            --description "Deployment from GitHub Actions for commit ${{ github.sha }}" \
+            --s3-location bucket=${{ secrets.S3_BUCKET_FOR_DEPLOYMENTS }},key=frontend-${{ github.sha }}.zip,bundleType=zip
