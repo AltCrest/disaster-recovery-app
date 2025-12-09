@@ -22,33 +22,22 @@ DR_ALB_DNS_NAME = os.environ.get('DR_ALB_DNS_NAME')
 DR_ALB_ZONE_ID = os.environ.get('DR_ALB_ZONE_ID') # Canonical hosted zone ID for the DR ALB
 
 
-def promote_rds_replica(event, context):
+def provision_new_rds(event, context):
     """
-    State 1: Promotes the RDS Read Replica to a standalone instance.
-    This is the first step in the failover process.
+    State 1: Starts the process of provisioning a new RDS instance in the DR region.
+    For a fully automated setup, this Lambda would use boto3 to create the RDS instance.
+    For this capstone, we will simulate this by returning the expected name.
     """
-    logger.info(f"Attempting to promote read replica: {SOURCE_REPLICA_ARN}")
-    if not SOURCE_REPLICA_ARN:
-        raise ValueError("SOURCE_REPLICA_ARN environment variable not set.")
+    dr_db_identifier = os.environ.get('DR_RDS_INSTANCE_NAME', 'restored-primary-db')
+    logger.info(f"Initiating provisioning for new RDS instance: {dr_db_identifier}")
 
-    try:
-        # Note: We can't use promote_read_replica across regions.
-        # The correct action is to create a new instance from a final snapshot.
-        # For this example, we'll assume a manual promotion or a different strategy.
-        # A more robust solution might involve deleting the replica and creating a new DB from its last snapshot.
-        # Let's simulate this by simply checking the instance status.
-        
-        # This is a placeholder for a more complex promotion logic.
-        # In a real cross-region failover, you would likely delete the replica link
-        # and manage the DB independently. For now, we'll just return the name.
-        logger.info("Simulating RDS promotion. In a real scenario, this would involve snapshot/restore or DMS.")
-        
-        # Return the identifier for the next step
-        return {'dr_db_identifier': DR_RDS_INSTANCE_NAME, 'status': 'PROMOTION_STARTED'}
-
-    except Exception as e:
-        logger.error(f"Error promoting RDS replica: {e}")
-        raise
+    # In a real-world scenario, you would add:
+    # rds_client.create_db_instance(...)
+    
+    logger.info("Simulation: Provisioning signal sent. The instance will be created via other means or manually for this exercise.")
+    
+    # We return the identifier so the next step knows which DB to check on.
+    return {'dr_db_identifier': dr_db_identifier, 'status': 'PROVISIONING_STARTED'}
 
 def check_rds_status(event, context):
     """
