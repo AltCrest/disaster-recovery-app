@@ -11,3 +11,4 @@ artifacts:
     - 'requirements.txt'
     - 'appspec.yml' # This now refers to backend/appspec.yml
     - 'scripts/**/*' # This now refers to backend/scripts/
+    - '.env' 
