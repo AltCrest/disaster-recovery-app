@@ -33,10 +33,11 @@ resource "aws_iam_role_policy_attachment" "lambda_route53_access" {
 # --- Zip the Lambda Code ---
 data "archive_file" "failover_lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.root}/lambda"
-  output_path = "${path.root}/lambda.zip"
+  # CHANGE THIS LINE to go up one directory from the current module path
+  source_dir  = "${path.module}/../lambda" 
+  # CHANGE THIS LINE as well
+  output_path = "${path.module}/../lambda.zip" 
 }
-
 # --- Create the Lambda Functions ---
 resource "aws_lambda_function" "provision_rds_lambda" { # CORRECTED NAME
   provider      = aws.primary
