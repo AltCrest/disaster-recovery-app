@@ -7,6 +7,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import logging
 from datetime import datetime
+import json
 
 # --- Configuration ---
 PRIMARY_REGION = os.getenv('PRIMARY_REGION', 'us-east-1')
@@ -22,6 +23,11 @@ CORS(app)
 
 # --- Boto3 Clients ---
 s3_client_primary = boto3.client('s3', region_name=PRIMARY_REGION)
+
+# --- Add these new components ---
+step_functions_client = boto3.client('stepfunctions', region_name=PRIMARY_REGION)
+# The ARN you copied from the terraform output
+STATE_MACHINE_ARN = os.getenv('STATE_MACHINE_ARN')
 
 # --- Helper Functions ---
 def get_s3_replication_status(bucket_name):
@@ -96,10 +102,39 @@ def get_status():
         "backupDetails": backup_info
     })
 
+# --- Add these new components ---
+step_functions_client = boto3.client('stepfunctions', region_name=PRIMARY_REGION)
+# The ARN you copied from the terraform output
+STATE_MACHINE_ARN = os.getenv('STATE_MACHINE_ARN')
 @app.route('/api/initiate-failover', methods=['POST'])
 def initiate_failover():
-    logging.warning("FAILOVER INITIATED! (Simulation)")
-    return jsonify({"message": "Failover process initiated successfully (simulation)."}), 200
+    """Triggers the AWS Step Functions state machine for failover."""
+    logging.warning("REAL FAILOVER TRIGGERED!")
+    
+    if not STATE_MACHINE_ARN:
+        logging.error("STATE_MACHINE_ARN environment variable is not set.")
+        return jsonify({"message": "Failover process is not configured correctly on the server."}), 500
+
+    try:
+        # You can pass input to the state machine, e.g., who triggered it
+        execution_input = json.dumps({"trigger_method": "manual_dashboard"})
+        
+        response = step_functions_client.start_execution(
+            stateMachineArn=STATE_MACHINE_ARN,
+            input=execution_input
+        )
+        
+        execution_arn = response['executionArn']
+        logging.info(f"Successfully started state machine execution: {execution_arn}")
+        
+        return jsonify({
+            "message": "Failover process initiated successfully.",
+            "executionArn": execution_arn # Send the execution ARN back to the frontend
+        }), 200
+
+    except Exception as e:
+        logging.error(f"Failed to start Step Function execution: {e}")
+        return jsonify({"message": "An error occurred while trying to initiate the failover."}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

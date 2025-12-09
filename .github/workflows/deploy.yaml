@@ -99,7 +99,7 @@ jobs:
 
       - name: Prepare frontend deployment package
         run: |
-          cp frontend/appspec.yml frontend/build/appspec.yml
+          cp frontend/appspec.yaml frontend/build/appspec.yaml
           cp -r frontend/scripts frontend/build/
           cd frontend/build
           zip -r ../../frontend-deployment.zip .

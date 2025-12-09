@@ -64,14 +64,20 @@ function App() {
   }, [fetchStatus]);
 
   const handleFailover = async () => {
-    if (window.confirm("Are you absolutely sure you want to initiate a failover? This action is not easily reversible and should only be done in a real disaster scenario.")) {
+    if (window.confirm("ARE YOU ABSOLUTELY SURE you want to initiate a failover? This will redirect all user traffic and should only be done in a confirmed, major outage.")) {
       try {
         const response = await fetch(`${API_URL}/api/initiate-failover`, { method: 'POST' });
         const data = await response.json();
-        alert(data.message);
-        fetchStatus();
+        
+        if (response.ok) {
+          alert(`SUCCESS: ${data.message}\n\nYou can monitor the progress in the AWS Step Functions console with this execution ARN:\n${data.executionArn}`);
+        } else {
+          alert(`ERROR: ${data.message || 'An unknown error occurred.'}`);
+        }
+
+        fetchStatus(); // Refresh the main dashboard status
       } catch (err) {
-        alert("Failed to initiate failover.");
+        alert("Failed to connect to the backend to initiate failover. Is the backend running?");
       }
     }
   };

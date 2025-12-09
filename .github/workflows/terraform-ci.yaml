@@ -1,4 +1,4 @@
-# .github/workflows/terraform-ci.yml
+# .github/workflows/terraform-ci.yaml
 
 name: "Terraform Infrastructure CI/CD"
 
