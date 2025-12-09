@@ -73,23 +73,15 @@ resource "aws_lambda_function" "check_rds_status_lambda" {
   }
 }
 
-resource "aws_lambda_function" "update_dns_lambda" {
+resource "aws_lambda_function" "provision_rds_lambda" { # <-- RENAMED
   provider      = aws.primary
   filename      = data.archive_file.failover_lambda_zip.output_path
-  function_name = "update-dns-record"
+  function_name = "provision-new-rds-instance" # <-- RENAMED
   role          = aws_iam_role.failover_lambda_role.arn
-  handler       = "failover_orchestrator.update_dns_record"
+  handler       = "failover_orchestrator.provision_new_rds" # <-- UPDATED HANDLER
   runtime       = "python3.9"
   timeout       = 30
-  
-  environment {
-    variables = {
-      ROUTE53_HOSTED_ZONE_ID = "YOUR_HOSTED_ZONE_ID" # e.g., Z0123456789ABCDEFGHIJ
-      DNS_RECORD_NAME        = "app.yourdomain.com"
-      DR_ALB_DNS_NAME        = aws_lb.app_alb_dr.dns_name
-      DR_ALB_ZONE_ID         = aws_lb.app_alb_dr.zone_id
-    }
-  }
+  # The environment block with the invalid reference is now completely REMOVED.
 }
 
 
@@ -133,11 +125,11 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
   role_arn     = aws_iam_role.step_function_role.arn
   definition   = jsonencode({
     Comment = "A state machine to orchestrate DR failover."
-    StartAt = "PromoteReadReplica"
+    StartAt = "ProvisionNewRds" # <-- RENAMED START STATE
     States = {
-      PromoteReadReplica = {
+      ProvisionNewRds = { # <-- RENAMED STATE
         Type     = "Task"
-        Resource = aws_lambda_function.promote_rds_lambda.arn
+        Resource = aws_lambda_function.provision_rds_lambda.arn # <-- UPDATED RESOURCE
         Next     = "WaitForRdsAvailable"
       },
       WaitForRdsAvailable = {
@@ -166,6 +158,7 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
         Resource = aws_lambda_function.update_dns_lambda.arn
         End      = true
       }
+      
     }
   })
 }
