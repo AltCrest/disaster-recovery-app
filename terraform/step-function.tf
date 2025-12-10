@@ -151,7 +151,7 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
         Type     = "Task",
         Resource = "arn:aws:states:::aws-sdk:ec2:terminateInstances",
         Parameters = {
-          "InstanceIds.$" = "$.[instance_id]"
+          "InstanceIds.$" = "$.instance_id"
         },
         End = true
       },
