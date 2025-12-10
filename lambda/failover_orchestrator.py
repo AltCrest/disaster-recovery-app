@@ -13,7 +13,6 @@ rds_client = boto3.client('rds')
 route53_client = boto3.client('route53')
 
 # --- Configuration from Environment Variables ---
-# These will be set in your Terraform configuration
 DR_RDS_INSTANCE_NAME = os.environ.get('DR_RDS_INSTANCE_NAME', 'dr-replica-db') # A unique name for the new primary
 SOURCE_REPLICA_ARN = os.environ.get('SOURCE_REPLICA_ARN')
 ROUTE53_HOSTED_ZONE_ID = os.environ.get('ROUTE53_HOSTED_ZONE_ID')
