@@ -93,7 +93,7 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
           "Parameters" = {
             "commands" = [
               "git clone https://github.com/AltCrest/disaster-recovery-app.git",
-              "bash disaster-recovery-app/restore_scripts/run_restore.sh ${aws_s_bucket.dr_data.id} ${var.dr_region} ${aws_db_subnet_group.dr.name} ${aws_security_group.ec2_sg_dr.id}"
+              "bash disaster-recovery-app/restore_scripts/run_restore.sh ${aws_s3_bucket.dr_data.id} ${var.dr_region} ${aws_db_subnet_group.dr.name} ${aws_security_group.ec2_sg_dr.id}"
             ]
           }
         },
