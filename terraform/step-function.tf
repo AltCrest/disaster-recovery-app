@@ -80,7 +80,7 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
         Result = {
           "instance_id" = aws_instance.restore_host.id
         },
-        Next = "TriggerRestoreScript"
+        Next = "WaitForHostToBeReady"
       },
       WaitForHostToBeReady = {
         Type    = "Wait",
