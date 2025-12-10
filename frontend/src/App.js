@@ -4,8 +4,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 
 // The API URL will be read from the .env file
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-
+const API_URL = process.env.NODE_ENV === 'production'
+    ? '' // In production (deployed), use a relative path
+    : (process.env.REACT_APP_API_URL || 'http://localhost:5000');
 // A mapping for status colors
 const statusColors = {
   OPERATIONAL: '#28a745',
