@@ -4,7 +4,6 @@
 # Navigate to the application directory where the files were deployed
 cd /opt/app/backend
 
-# Check if a .env file exists and load its variables into the environment
 if [ -f .env ]; then
   echo "Loading environment variables from .env file..."
   # This command exports the variables so Gunicorn can see them

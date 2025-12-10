@@ -18,7 +18,7 @@ SOURCE_REPLICA_ARN = os.environ.get('SOURCE_REPLICA_ARN')
 ROUTE53_HOSTED_ZONE_ID = os.environ.get('ROUTE53_HOSTED_ZONE_ID')
 DNS_RECORD_NAME = os.environ.get('DNS_RECORD_NAME') # e.g., 'app.yourdomain.com'
 DR_ALB_DNS_NAME = os.environ.get('DR_ALB_DNS_NAME')
-DR_ALB_ZONE_ID = os.environ.get('DR_ALB_ZONE_ID') # Canonical hosted zone ID for the DR ALB
+DR_ALB_ZONE_ID = os.environ.get('DR_ALB_ZONE_ID') 
 
 
 def provision_new_rds(event, context):
