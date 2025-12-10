@@ -81,7 +81,6 @@ resource "aws_lb_listener_rule" "api_rule" {
 
 # ===================================================================
 # --- Disaster Recovery Region (us-west-2) ---
-# We create a parallel setup in the DR region.
 # ===================================================================
 
 # --- DR Application Load Balancer ---
