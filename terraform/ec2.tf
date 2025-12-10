@@ -43,7 +43,6 @@ resource "aws_instance" "frontend_server" {
   key_name             = "barrios-key-pair" # Make sure this key exists in your AWS account
   iam_instance_profile = aws_iam_instance_profile.ec2_codedeploy_profile.name
   
-  # CRITICAL: This places the instance in your VPC and assigns the correct firewall rules
   subnet_id              = aws_subnet.primary_public_b.id # Using the second AZ for availability
   vpc_security_group_ids = [aws_security_group.ec2_sg_primary.id]
 
