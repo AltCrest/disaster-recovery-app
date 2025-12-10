@@ -119,42 +119,14 @@ resource "aws_iam_role" "codedeploy_service_role" {
   })
 }
 
-# This policy defines the specific S3 actions our backend application needs to perform.
-resource "aws_iam_policy" "s3_dashboard_read_policy" {
-  provider = aws.primary
-  name     = "S3DashboardReadPolicy"
-  policy   = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Action = [
-          "s3:GetBucketReplication", # Note: Terraform uses GetBucketReplication, the API error shows GetBucketReplicationConfiguration. We'll add both to be safe.
-          "s3:GetBucketReplicationConfiguration",
-          "s3:ListBucket"
-        ],
-        Effect   = "Allow",
-        Resource = aws_s3_bucket.primary_data.arn
-      }
-    ]
-  })
-}
-
-# --- ADD THIS NEW ATTACHMENT ---
-# This attaches the new S3 policy to the existing role used by our EC2 instances.
-resource "aws_iam_role_policy_attachment" "s3_read_access" {
-  provider   = aws.primary
-  role       = aws_iam_role.ec2_codedeploy_role.name
-  policy_arn = aws_iam_policy.s3_dashboard_read_policy.arn
-}
-
 resource "aws_iam_role_policy_attachment" "codedeploy_service_policy" {
   provider   = aws.primary
   role       = aws_iam_role.codedeploy_service_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
-# --- IAM Role for EC2 Instances to work with CodeDeploy ---
-# Attached to the EC2 instances so the CodeDeploy agent can run.
+# --- IAM Role and Profile for EC2 Instances ---
+# Attached to the EC2 instances to grant permissions to the CodeDeploy agent and the application.
 resource "aws_iam_role" "ec2_codedeploy_role" {
   provider           = aws.primary
   name               = "EC2CodeDeployRole"
@@ -168,16 +140,48 @@ resource "aws_iam_role" "ec2_codedeploy_role" {
   })
 }
 
+# Attachment for CodeDeploy agent permissions
 resource "aws_iam_role_policy_attachment" "codedeploy_access" {
   provider   = aws.primary
   role       = aws_iam_role.ec2_codedeploy_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforAWSCodeDeploy"
 }
 
+# The instance profile that links this role to the EC2 instances
 resource "aws_iam_instance_profile" "ec2_codedeploy_profile" {
   provider = aws.primary
   name     = "EC2CodeDeployInstanceProfile"
   role     = aws_iam_role.ec2_codedeploy_role.name
+}
+
+# Custom policy to allow the backend application to read from the S3 data bucket
+resource "aws_iam_policy" "s3_dashboard_read_policy" {
+  provider = aws.primary
+  name     = "S3DashboardReadPolicy"
+  policy   = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      # Permissions for the bucket itself
+      {
+        Action   = ["s3:GetBucketReplicationConfiguration", "s3:ListBucket"],
+        Effect   = "Allow",
+        Resource = aws_s3_bucket.primary_data.arn
+      },
+      # Permissions for the objects inside the bucket
+      {
+        Action   = ["s3:GetObject"],
+        Effect   = "Allow",
+        Resource = "${aws_s3_bucket.primary_data.arn}/*"
+      }
+    ]
+  })
+}
+
+# Attaches the S3 read policy to the EC2 role
+resource "aws_iam_role_policy_attachment" "s3_read_access" {
+  provider   = aws.primary
+  role       = aws_iam_role.ec2_codedeploy_role.name
+  policy_arn = aws_iam_policy.s3_dashboard_read_policy.arn
 }
 
 # --- IAM Role for the Failover Lambda Functions ---
