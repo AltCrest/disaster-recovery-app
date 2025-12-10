@@ -128,11 +128,14 @@ def get_status():
         "backupDetails": backup_info
     })
 
+# --- Add these new components ---
+#step_functions_client = boto3.client('stepfunctions', region_name=PRIMARY_REGION)
+# The ARN you copied from the terraform output
+#STATE_MACHINE_ARN = os.getenv('STATE_MACHINE_ARN')
 @app.route('/api/initiate-failover', methods=['POST'])
 def initiate_failover():
-    """Triggers the AWS Step Functions state machine in the DR REGION."""
-    logging.warning("REAL FAILOVER TRIGGERED! Contacting orchestrator in DR region...")
-    
+    """Triggers the AWS Step Functions state machine for failover."""
+    logging.warning("REAL FAILOVER TRIGGERED!")
     if not DR_STATE_MACHINE_ARN:
         logging.error("DR_STATE_MACHINE_ARN environment variable is not set.")
         return jsonify({"message": "Failover process is not configured correctly on the server."}), 500
@@ -140,23 +143,22 @@ def initiate_failover():
     try:
         execution_input = json.dumps({"trigger_method": "manual_dashboard"})
         
-        # Use the dedicated DR region client to start the execution
         response = step_functions_client_dr.start_execution(
             stateMachineArn=DR_STATE_MACHINE_ARN,
             input=execution_input
         )
         
         execution_arn = response['executionArn']
-        logging.info(f"Successfully started state machine execution in DR region: {execution_arn}")
+        logging.info(f"Successfully started state machine execution: {execution_arn}")
         
         return jsonify({
-            "message": "Failover process initiated successfully in DR region.",
+            "message": "Failover process initiated successfully.",
             "executionArn": execution_arn
         }), 200
 
     except Exception as e:
         logging.error(f"Failed to start Step Function execution: {e}")
-        return jsonify({"message": f"An error occurred while trying to initiate the failover: {e}"}), 500
+        return jsonify({"message": "An error occurred while trying to initiate the failover."}), 500
 
 # ===================================================================
 # --- Main Execution Block ---
