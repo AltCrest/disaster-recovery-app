@@ -140,7 +140,7 @@ def hello():
     """
     A simple health check endpoint that the ALB can hit.
     """
-    return "Hello, the backend is running!", 200 # Return a 200 OK status
+    return "Hello, the backend is running!", 200 
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
