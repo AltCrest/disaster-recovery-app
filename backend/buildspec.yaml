@@ -4,7 +4,6 @@ phases:
     commands:
       - echo "No build steps needed for backend, just packaging..."
 artifacts:
-  # This tells CodeBuild to look for files inside the 'backend' directory
   base-directory: 'backend'
   files:
     - 'app.py'
