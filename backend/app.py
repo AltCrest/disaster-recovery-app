@@ -2,35 +2,49 @@
 
 import os
 import boto3
+import json
 from botocore.exceptions import ClientError
 from flask import Flask, jsonify
 from flask_cors import CORS
 import logging
 from datetime import datetime
-import json
 
+# ===================================================================
 # --- Configuration ---
+# Uses environment variables for flexibility in different environments.
+# ===================================================================
 PRIMARY_REGION = os.getenv('PRIMARY_REGION', 'us-east-1')
 DR_REGION = os.getenv('DR_REGION', 'us-west-2')
 PRIMARY_BUCKET_NAME = os.getenv('PRIMARY_BUCKET_NAME')
+DR_STATE_MACHINE_ARN = os.getenv('DR_STATE_MACHINE_ARN') # The ARN of the Step Function in the DR region
 
+# ===================================================================
 # --- Logging Setup ---
+# ===================================================================
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# ===================================================================
 # --- Flask App Initialization ---
+# ===================================================================
 app = Flask(__name__)
-CORS(app)
+CORS(app) # Enable Cross-Origin Resource Sharing for the frontend
 
+# ===================================================================
 # --- Boto3 Clients ---
+# Initialize clients once for reuse across requests.
+# ===================================================================
+# S3 client for checking the primary bucket status
 s3_client_primary = boto3.client('s3', region_name=PRIMARY_REGION)
 
-# --- Add these new components ---
-step_functions_client = boto3.client('stepfunctions', region_name=PRIMARY_REGION)
-# The ARN you copied from the terraform output
-STATE_MACHINE_ARN = os.getenv('STATE_MACHINE_ARN')
+# Step Functions client SPECIFICALLY for the DR region
+step_functions_client_dr = boto3.client('stepfunctions', region_name=DR_REGION)
 
-# --- Helper Functions ---
+
+# ===================================================================
+# --- Helper Functions for Status Checks ---
+# ===================================================================
 def get_s3_replication_status(bucket_name):
+    """Checks the replication status for a given S3 bucket."""
     if not bucket_name:
         return {"status": "CONFIG_ERROR", "details": "PRIMARY_BUCKET_NAME not set."}
     try:
@@ -52,6 +66,7 @@ def get_s3_replication_status(bucket_name):
 
 
 def get_last_backup_info(bucket_name):
+    """Finds the last object uploaded to the S3 bucket, assuming it's a backup."""
     if not bucket_name:
         return {"last_backup_file": "N/A", "last_backup_time": "N/A", "freshness_status": "CONFIG_ERROR"}
     try:
@@ -76,18 +91,29 @@ def get_last_backup_info(bucket_name):
         logging.error(f"Error listing objects for bucket {bucket_name}: {e}")
         return {"last_backup_file": "Error", "last_backup_time": "Error", "freshness_status": "ERROR"}
 
+# ===================================================================
 # --- API Routes ---
+# ===================================================================
+@app.route("/")
+def hello():
+    """A simple health check endpoint that the ALB can hit."""
+    return "Hello, the backend is running!", 200
+
 @app.route('/api/status', methods=['GET'])
 def get_status():
+    """Main endpoint to get the overall system and DR status."""
     logging.info("Status request received for /api/status.")
+    
     replication = get_s3_replication_status(PRIMARY_BUCKET_NAME)
     backup_info = get_last_backup_info(PRIMARY_BUCKET_NAME)
+    
     statuses = [replication['status'], backup_info['freshness_status']]
     overall_status = "OPERATIONAL"
     if "DEGRADED" in statuses:
         overall_status = "DEGRADED"
     if "ERROR" in statuses or "CONFIG_ERROR" in statuses:
         overall_status = "ERROR"
+
     return jsonify({
         "overallStatus": overall_status,
         "lastChecked": datetime.now().isoformat(),
@@ -102,45 +128,39 @@ def get_status():
         "backupDetails": backup_info
     })
 
-# --- Add these new components ---
-step_functions_client = boto3.client('stepfunctions', region_name=PRIMARY_REGION)
-# The ARN you copied from the terraform output
-STATE_MACHINE_ARN = os.getenv('STATE_MACHINE_ARN')
 @app.route('/api/initiate-failover', methods=['POST'])
 def initiate_failover():
-    """Triggers the AWS Step Functions state machine for failover."""
-    logging.warning("REAL FAILOVER TRIGGERED!")
+    """Triggers the AWS Step Functions state machine in the DR REGION."""
+    logging.warning("REAL FAILOVER TRIGGERED! Contacting orchestrator in DR region...")
     
-    if not STATE_MACHINE_ARN:
-        logging.error("STATE_MACHINE_ARN environment variable is not set.")
+    if not DR_STATE_MACHINE_ARN:
+        logging.error("DR_STATE_MACHINE_ARN environment variable is not set.")
         return jsonify({"message": "Failover process is not configured correctly on the server."}), 500
 
     try:
         execution_input = json.dumps({"trigger_method": "manual_dashboard"})
         
-        response = step_functions_client.start_execution(
-            stateMachineArn=STATE_MACHINE_ARN,
+        # Use the dedicated DR region client to start the execution
+        response = step_functions_client_dr.start_execution(
+            stateMachineArn=DR_STATE_MACHINE_ARN,
             input=execution_input
         )
         
         execution_arn = response['executionArn']
-        logging.info(f"Successfully started state machine execution: {execution_arn}")
+        logging.info(f"Successfully started state machine execution in DR region: {execution_arn}")
         
         return jsonify({
-            "message": "Failover process initiated successfully.",
-            "executionArn": execution_arn 
+            "message": "Failover process initiated successfully in DR region.",
+            "executionArn": execution_arn
         }), 200
 
     except Exception as e:
         logging.error(f"Failed to start Step Function execution: {e}")
-        return jsonify({"message": "An error occurred while trying to initiate the failover."}), 500
-    
-@app.route("/")
-def hello():
-    """
-    A simple health check endpoint that the ALB can hit.
-    """
-    return "Hello, the backend is running!", 200 
+        return jsonify({"message": f"An error occurred while trying to initiate the failover: {e}"}), 500
 
+# ===================================================================
+# --- Main Execution Block ---
+# This allows running the app directly with `python app.py` for local dev.
+# ===================================================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
