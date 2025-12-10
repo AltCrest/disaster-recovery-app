@@ -116,7 +116,6 @@ def initiate_failover():
         return jsonify({"message": "Failover process is not configured correctly on the server."}), 500
 
     try:
-        # You can pass input to the state machine, e.g., who triggered it
         execution_input = json.dumps({"trigger_method": "manual_dashboard"})
         
         response = step_functions_client.start_execution(
