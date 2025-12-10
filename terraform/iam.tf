@@ -119,6 +119,34 @@ resource "aws_iam_role" "codedeploy_service_role" {
   })
 }
 
+# This policy defines the specific S3 actions our backend application needs to perform.
+resource "aws_iam_policy" "s3_dashboard_read_policy" {
+  provider = aws.primary
+  name     = "S3DashboardReadPolicy"
+  policy   = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "s3:GetBucketReplication", # Note: Terraform uses GetBucketReplication, the API error shows GetBucketReplicationConfiguration. We'll add both to be safe.
+          "s3:GetBucketReplicationConfiguration",
+          "s3:ListBucket"
+        ],
+        Effect   = "Allow",
+        Resource = aws_s3_bucket.primary_data.arn
+      }
+    ]
+  })
+}
+
+# --- ADD THIS NEW ATTACHMENT ---
+# This attaches the new S3 policy to the existing role used by our EC2 instances.
+resource "aws_iam_role_policy_attachment" "s3_read_access" {
+  provider   = aws.primary
+  role       = aws_iam_role.ec2_codedeploy_role.name
+  policy_arn = aws_iam_policy.s3_dashboard_read_policy.arn
+}
+
 resource "aws_iam_role_policy_attachment" "codedeploy_service_policy" {
   provider   = aws.primary
   role       = aws_iam_role.codedeploy_service_role.name
