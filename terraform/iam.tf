@@ -293,20 +293,20 @@ resource "aws_iam_role" "step_function_role_dr" {
 
 # --- IAM Policy for the DR Step Function Role ---
 resource "aws_iam_role_policy" "step_function_policy_dr" {
-  provider = aws.dr # <-- CRITICAL: Creates this policy in the DR region
+  provider = aws.dr
   name     = "FailoverStepFunctionPolicy-DR"
   role     = aws_iam_role.step_function_role_dr.id
   policy   = jsonencode({
     Version   = "2012-10-17",
     Statement = [
-      # This role needs permission to pass the Restore Host's role to SSM...
+      # Statement 1: Allows passing the EC2 role to SSM
       {
         Sid      = "AllowPassRoleToSsmForEc2",
         Effect   = "Allow",
         Action   = "iam:PassRole",
         Resource = aws_iam_role.restore_host_role.arn
       },
-      # ...and it needs permission to send commands to the instance.
+      # Statement 2: Allows the Step Function to send commands to the instance
       {
         Sid      = "AllowSsmSendCommand",
         Effect   = "Allow",
@@ -321,15 +321,32 @@ resource "aws_iam_role_policy" "step_function_policy_dr" {
           }
         }
       },
-      # It also needs permission to terminate the restore host
+      # Statement 3: Allows the Step Function to get the status of the command
       {
-        Sid    = "AllowEc2Termination",
+        Sid    = "AllowSsmGetCommandInvocation",
         Effect = "Allow",
-        Action = "ec2:TerminateInstances",
-        Resource = "*" # Scoped down in production
+        Action = "ssm:GetCommandInvocation",
+        Resource = "*"
+      },
+      # Statement 4: Allows the Step Function to terminate the restore host
+      {
+        Sid      = "AllowEc2Termination",
+        Effect   = "Allow",
+        Action   = "ec2:TerminateInstances",
+        Resource = "*",
+        Condition = {
+          "StringEquals" = {
+            "ec2:ResourceTag/Name" = "Restore-Host"
+          }
+        }
+      },
+      # Statement 5: Allows the Step Function to invoke the DNS update Lambda
+      {
+        Sid    = "AllowLambdaInvocation",
+        Effect = "Allow",
+        Action = "lambda:InvokeFunction",
+        Resource = aws_lambda_function.update_dns_lambda.arn
       }
-      # NOTE: Permissions to invoke the DNS update Lambda are also needed.
-      # We are assuming the Lambda is in the primary region for now.
     ]
   })
 }
