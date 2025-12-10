@@ -52,22 +52,24 @@ jobs:
 
       - name: Create backend deployment package
         run: |
-          # Step 1: Create a clean staging directory for our package
+          # Step 1: Create a clean staging directory
           mkdir -p staging
 
-          # Step 2: Explicitly copy ONLY the files we need for deployment.
-          # This is safer and avoids including unnecessary files.
+          # Step 2: Write the contents of the GitHub secret to a .env file INSIDE the staging directory
+          echo "${{ secrets.BACKEND_ENV_FILE }}" > staging/.env
+
+          # Step 3: Copy the rest of the application files into the staging directory
           cp backend/app.py staging/
           cp backend/requirements.txt staging/
           cp backend/appspec.yml staging/
           cp -r backend/scripts staging/
 
-          # This is the critical step. Explicitly copy the .env file.
-          # The '|| true' ensures the command doesn't fail if the .env file is missing locally,
-          # though you should always have it.
-          cp backend/.env staging/ || true
+          # Diagnostic step: list the files in the staging directory to be 100% sure
+          echo "--- Files in staging directory before zipping: ---"
+          ls -la staging/
+          echo "------------------------------------------------"
 
-          # Step 3: Go into the clean staging directory and zip its contents.
+          # Step 4: Go into the staging directory and zip its contents
           cd staging
           zip -r ../backend-deployment.zip .
 
