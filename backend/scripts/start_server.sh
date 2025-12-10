@@ -1,15 +1,33 @@
 #!/bin/bash
 # This script starts the application server.
 
-cd /opt/app/backend
+# Define the application directory explicitly
+APP_DIR="/opt/app/backend"
 
-if [ -f .env ]; then
-  echo "Loading environment variables from .env file..."
-  export $(cat .env | sed 's/#.*//g' | xargs)
+# Navigate to the application directory
+cd "$APP_DIR"
+
+# Check if a .env file exists AT THE ABSOLUTE PATH and load it
+if [ -f "$APP_DIR/.env" ]; then
+  echo "SUCCESS: Found .env file at $APP_DIR/.env. Loading variables..."
+  # This command ensures variables are available to the gunicorn process
+  set -o allexport
+  source "$APP_DIR/.env"
+  set +o allexport
 else
-  echo "Warning: .env file not found. Application may not be configured correctly."
+  echo "CRITICAL ERROR: .env file not found at $APP_DIR/.env. Cannot start server."
+  # Exit with a non-zero code to make the CodeDeploy deployment FAIL
+  exit 1
 fi
 
 # Start the Gunicorn server as a background process
 echo "Starting Gunicorn server..."
+# Use an absolute path for the app module just to be safe
 gunicorn --bind 0.0.0.0:5000 --daemon app:app
+
+# Check immediately if the process started
+# pgrep -f gunicorn
+# if [ $? -ne 0 ]; then
+#   echo "CRITICAL ERROR: Gunicorn process failed to start."
+#   exit 1
+# fi
