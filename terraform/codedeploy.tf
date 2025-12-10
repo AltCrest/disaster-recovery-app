@@ -46,6 +46,12 @@ resource "aws_codedeploy_deployment_group" "backend_dg" {
     deployment_option = "WITH_TRAFFIC_CONTROL"
     deployment_type   = "IN_PLACE"
   }
+
+  load_balancer_info {
+    target_group_info {
+      name = aws_lb_target_group.app_tg_backend.name # Use the new backend name
+    }
+  }
 }
 
 
@@ -71,5 +77,11 @@ resource "aws_codedeploy_deployment_group" "frontend_dg" {
   deployment_style {
     deployment_option = "WITH_TRAFFIC_CONTROL"
     deployment_type   = "IN_PLACE"
+  }
+
+  load_balancer_info {
+    target_group_info {
+      name = aws_lb_target_group.app_tg_frontend.name # Use the new frontend name
+    }
   }
 }
