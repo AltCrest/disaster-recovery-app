@@ -129,7 +129,7 @@ def initiate_failover():
         
         return jsonify({
             "message": "Failover process initiated successfully.",
-            "executionArn": execution_arn # Send the execution ARN back to the frontend
+            "executionArn": execution_arn 
         }), 200
 
     except Exception as e:
