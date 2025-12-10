@@ -62,85 +62,55 @@ resource "aws_lambda_function" "update_dns_lambda" {
 # This orchestrates the Lambda functions in the correct order.
 # In step-function.tf, replace the state machine resource
 
+# Replace your existing aws_sfn_state_machine with this one
+
 resource "aws_sfn_state_machine" "failover_state_machine" {
-  provider   = aws.primary
-  name       = "RealFailoverOrchestrator"
-  role_arn   = aws_iam_role.step_function_role.arn
+  provider = aws.primary
+  name     = "RealFailoverOrchestrator"
+  role_arn = aws_iam_role.step_function_role.arn
+
   definition = jsonencode({
-    Comment = "A state machine to orchestrate a real DR failover..."
-    StartAt = "ProvisionRestoreHost" # This state now just passes the ID
+    Comment = "A state machine to orchestrate a real DR failover by restoring from S3."
+    StartAt = "ProvisionRestoreHost"
     States = {
       ProvisionRestoreHost = {
-        Type = "Pass"
-        # This dynamically gets the ID of the restore host we just created
+        Type = "Pass",
         Result = {
           "instance_id" = aws_instance.restore_host.id
-        }
+        },
         Next = "TriggerRestoreScript"
       },
       TriggerRestoreScript = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::aws-sdk:ssm:sendCommand"
+        Type     = "Task",
+        Resource = "arn:aws:states:::aws-sdk:ssm:sendCommand.sync", # Use .sync for simplicity
         Parameters = {
-          "DocumentName" = "AWS-RunShellScript"
-          # This now correctly references the output of the previous state
-          "InstanceIds.$"  = "$.[instance_id]" 
-          "Parameters" = {
-            "commands" = [
-              # This command clones your repo and runs the restore script
-              "git clone https://github.com/your-repo/disaster-recovery-app.git",
-              "bash disaster-recovery-app/restore_scripts/run_restore.sh ${{ aws_s3_bucket.dr_data.id }} ${{ var.dr_region }} ${{ aws_db_subnet_group.dr.name }} ${{ aws_security_group.ec2_sg_dr.id }}"
+          DocumentName = "AWS-RunShellScript",
+          InstanceIds  = [aws_instance.restore_host.id],
+          Comment      = "Execute database restore script",
+          Parameters = {
+            commands = [
+              "git clone https://github.com/AltCrest/disaster-recovery-app.git",
+              "bash disaster-recovery-app/restore_scripts/run_restore.sh ${aws_s3_bucket.dr_data.id} ${var.dr_region} ${aws_db_subnet_group.dr.name} ${aws_security_group.ec2_sg_dr.id}"
             ]
           }
-        }
-        Next = "WaitForRestoreToComplete"
-      },
-      WaitForRestoreToComplete = {
-        Type    = "Wait"
-        Seconds = 60 # Wait for 1 minute before checking status
-        Next    = "GetRestoreStatusCommand"
-      },
-      GetRestoreStatusCommand = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::aws-sdk:ssm:getCommandInvocation"
-        Parameters = {
-          "CommandId" = "$.CommandId"
-          "InstanceId" = "$.instance_id"
-        }
-        Next = "IsRestoreComplete"
-      },
-      IsRestoreComplete = {
-        Type = "Choice"
-        Choices = [
-          {
-            Variable = "$.Status"
-            StringEquals = "Success"
-            Next = "UpdateDnsRecord"
-          },
-          {
-            Variable = "$.Status"
-            StringEquals = "InProgress"
-            Next = "WaitForRestoreToComplete"
-          }
-        ]
-        Default = "FailState" # If it fails, go to a fail state
+        },
+        Next = "UpdateDnsRecord"
       },
       UpdateDnsRecord = {
-        # ... (this part remains the same) ...
+        Type     = "Task",
+        Resource = "arn:aws:states:::lambda:invoke",
+        Parameters = {
+          FunctionName = aws_lambda_function.update_dns_lambda.function_name
+        },
         Next = "TerminateRestoreHost"
       },
       TerminateRestoreHost = {
-        Type     = "Task"
-        Resource = "arn:aws:states:::aws-sdk:ec2:terminateInstances"
+        Type     = "Task",
+        Resource = "arn:aws:states:::aws-sdk:ec2:terminateInstances",
         Parameters = {
-          "InstanceIds" = ["$.instance_id"]
-        }
+          InstanceIds = [aws_instance.restore_host.id]
+        },
         End = true
-      },
-      FailState = {
-        Type = "Fail"
-        Error = "RestoreScriptFailed"
-        Cause = "The SSM Run Command failed to complete successfully."
       }
     }
   })
