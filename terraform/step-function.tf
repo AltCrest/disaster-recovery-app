@@ -82,6 +82,11 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
         },
         Next = "TriggerRestoreScript"
       },
+      WaitForHostToBeReady = {
+        Type    = "Wait",
+        Seconds = 90, # Wait for 90 seconds to allow the EC2 instance to boot and the SSM agent to start
+        Next    = "TriggerRestoreScript"
+      },
       # This state STARTS the command but does not wait for it.
       TriggerRestoreScript = {
         Type     = "Task",
