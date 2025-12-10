@@ -1,7 +1,6 @@
 # terraform/rds-dr.tf
 
 # --- DB Subnet Group for the DR Region ---
-# This tells RDS which subnets it is allowed to use in the DR region.
 resource "aws_db_subnet_group" "dr" {
   provider   = aws.dr
   name       = "dr-db-subnet-group"
@@ -13,7 +12,6 @@ resource "aws_db_subnet_group" "dr" {
 }
 
 # --- Security Group for the DR Database and Restore Host ---
-# This acts as the firewall for our temporary restore environment.
 resource "aws_security_group" "ec2_sg_dr" {
   provider    = aws.dr
   name        = "ec2-sg-dr"
@@ -21,7 +19,6 @@ resource "aws_security_group" "ec2_sg_dr" {
   vpc_id      = aws_vpc.dr.id
 
   # Rule 1: Allow the Restore Host to connect to the new RDS database.
-  # This is a self-referencing rule: resources within this SG can talk to each other.
   ingress {
     description = "Allow PostgreSQL traffic from within the same SG"
     from_port   = 5432
@@ -30,8 +27,7 @@ resource "aws_security_group" "ec2_sg_dr" {
     self        = true # Allows resources in this SG to communicate with each other
   }
 
-  # Rule 2 (Optional but recommended): Allow SSH into the Restore Host for debugging.
-  # IMPORTANT: Change the cidr_blocks to your own IP address for security.
+  # Rule 2: Allow SSH into the Restore Host for debugging.
   ingress {
     description = "Allow SSH for debugging"
     from_port   = 22
@@ -56,7 +52,6 @@ resource "aws_security_group" "ec2_sg_dr" {
 
 # ===================================================================
 # --- Section 2: DR Restore Host ---
-# This EC2 instance is launched in the DR region to orchestrate the database restore.
 # ===================================================================
 
 # --- Find the latest Amazon Linux 2023 AMI in the DR Region ---
@@ -96,7 +91,34 @@ resource "aws_iam_role_policy_attachment" "restore_host_ssm_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# (Add other policy attachments here if the restore script needs them, e.g., for RDS or S3)
+resource "aws_iam_policy" "restore_host_s3_policy" {
+  provider = aws.dr
+  name     = "RestoreHostS3ReadPolicy"
+  policy   = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "AllowListAndReadFromDRBucket",
+        Effect = "Allow",
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject"
+        ],
+        Resource = [
+          aws_s3_bucket.dr_data.arn,
+          "${aws_s3_bucket.dr_data.arn}/*" 
+        ]
+      }
+    ]
+  })
+}
+
+# This attaches the new S3 policy to the Restore Host's role.
+resource "aws_iam_role_policy_attachment" "restore_host_s3_attach" {
+  provider   = aws.dr
+  role       = aws_iam_role.restore_host_role.name
+  policy_arn = aws_iam_policy.restore_host_s3_policy.arn
+}
 
 # The instance profile is what links the role to the EC2 instance.
 resource "aws_iam_instance_profile" "restore_host_profile" {
