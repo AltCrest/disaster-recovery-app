@@ -249,14 +249,29 @@ resource "aws_iam_role_policy" "step_function_policy" {
       ]
     },
     {
-        # This statement allows the Step Function to pass the EC2 role to SSM
-        Sid    = "AllowPassRoleToSsm",
-        Effect = "Allow",
-        Action = "iam:PassRole",
-        # This is scoped to ONLY allow passing the specific role our Restore Host uses
-        Resource = aws_iam_role.restore_host_role.arn
+      # This statement allows the Step Function to pass the EC2 role to SSM
+      Sid    = "AllowPassRoleToSsm",
+      Effect = "Allow",
+      Action = "iam:PassRole",
+      # This is scoped to ONLY allow passing the specific role our Restore Host uses
+      Resource = aws_iam_role.restore_host_role.arn
+    },
+    {
+      # Statement 3: Allows the Step Function to send commands to the specific EC2 instance
+      Sid      = "AllowSsmSendCommand",
+      Effect   = "Allow",
+      Action   = "ssm:SendCommand",
+      # This is scoped to only allow sending commands to instances with the correct role
+      Resource = [
+        "arn:aws:ec2:${var.dr_region}:${data.aws_caller_identity.current.account_id}:instance/*",
+        "arn:aws:ssm:${var.dr_region}::document/AWS-RunShellScript"
+      ],
+      Condition = {
+        "StringEquals" = {
+          "iam:AssociatedInstanceProfile" = aws_iam_instance_profile.restore_host_profile.arn
+        }
       }
-    ]
+    }]
   })
 }
 
