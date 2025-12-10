@@ -277,6 +277,63 @@ resource "aws_iam_role_policy" "step_function_policy" {
 
 data "aws_caller_identity" "current" {}
 
+# --- IAM Role for the DR Failover Step Function (us-west-2) ---
+resource "aws_iam_role" "step_function_role_dr" {
+  provider           = aws.dr # <-- CRITICAL: Creates this role in the DR region
+  name               = "FailoverStepFunctionRole-DR"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [{
+      Action    = "sts:AssumeRole",
+      Effect    = "Allow",
+      Principal = { Service = "states.amazonaws.com" }
+    }]
+  })
+}
+
+# --- IAM Policy for the DR Step Function Role ---
+resource "aws_iam_role_policy" "step_function_policy_dr" {
+  provider = aws.dr # <-- CRITICAL: Creates this policy in the DR region
+  name     = "FailoverStepFunctionPolicy-DR"
+  role     = aws_iam_role.step_function_role_dr.id
+  policy   = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [
+      # This role needs permission to pass the Restore Host's role to SSM...
+      {
+        Sid      = "AllowPassRoleToSsmForEc2",
+        Effect   = "Allow",
+        Action   = "iam:PassRole",
+        Resource = aws_iam_role.restore_host_role.arn
+      },
+      # ...and it needs permission to send commands to the instance.
+      {
+        Sid      = "AllowSsmSendCommand",
+        Effect   = "Allow",
+        Action   = "ssm:SendCommand",
+        Resource = [
+          "arn:aws:ec2:${var.dr_region}:${data.aws_caller_identity.current.account_id}:instance/*",
+          "arn:aws:ssm:${var.dr_region}::document/AWS-RunShellScript"
+        ],
+        Condition = {
+          "StringEquals" = {
+            "iam:AssociatedInstanceProfile" = aws_iam_instance_profile.restore_host_profile.arn
+          }
+        }
+      },
+      # It also needs permission to terminate the restore host
+      {
+        Sid    = "AllowEc2Termination",
+        Effect = "Allow",
+        Action = "ec2:TerminateInstances",
+        Resource = "*" # Scoped down in production
+      }
+      # NOTE: Permissions to invoke the DNS update Lambda are also needed.
+      # We are assuming the Lambda is in the primary region for now.
+    ]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "lambda_ec2_access" {
   provider   = aws.primary
   role       = aws_iam_role.failover_lambda_role.name
