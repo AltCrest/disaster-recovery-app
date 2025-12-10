@@ -64,6 +64,8 @@ resource "aws_lambda_function" "update_dns_lambda" {
 
 # Replace your existing aws_sfn_state_machine with this one
 
+# In terraform/step-function.tf
+
 resource "aws_sfn_state_machine" "failover_state_machine" {
   provider = aws.primary
   name     = "RealFailoverOrchestrator"
@@ -80,27 +82,68 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
         },
         Next = "TriggerRestoreScript"
       },
+      # This state STARTS the command but does not wait for it.
       TriggerRestoreScript = {
         Type     = "Task",
-        Resource = "arn:aws:states:::aws-sdk:ssm:sendCommand.sync", # Use .sync for simplicity
+        Resource = "arn:aws:states:::aws-sdk:ssm:sendCommand", # REMOVED .sync
         Parameters = {
-          DocumentName = "AWS-RunShellScript",
-          InstanceIds  = [aws_instance.restore_host.id],
-          Comment      = "Execute database restore script",
-          Parameters = {
-            commands = [
+          "DocumentName"    = "AWS-RunShellScript",
+          "InstanceIds"     = [aws_instance.restore_host.id],
+          "Comment"         = "Execute database restore script",
+          "Parameters" = {
+            "commands" = [
               "git clone https://github.com/AltCrest/disaster-recovery-app.git",
-              "bash disaster-recovery-app/restore_scripts/run_restore.sh ${aws_s3_bucket.dr_data.id} ${var.dr_region} ${aws_db_subnet_group.dr.name} ${aws_security_group.ec2_sg_dr.id}"
+              "bash disaster-recovery-app/restore_scripts/run_restore.sh ${aws_s_bucket.dr_data.id} ${var.dr_region} ${aws_db_subnet_group.dr.name} ${aws_security_group.ec2_sg_dr.id}"
             ]
           }
         },
-        Next = "UpdateDnsRecord"
+        ResultPath = "$.ssm_command", # Save the output of this command
+        Next       = "WaitBeforeCheckingStatus"
+      },
+      # This state pauses the workflow for a while.
+      WaitBeforeCheckingStatus = {
+        Type    = "Wait",
+        Seconds = 60, # Wait for 1 minute before checking the command's status
+        Next    = "GetRestoreStatusCommand"
+      },
+      # This state checks the status of the command we just started.
+      GetRestoreStatusCommand = {
+        Type     = "Task",
+        Resource = "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+        Parameters = {
+          # Get the CommandId and InstanceId from the output of the 'TriggerRestoreScript' step
+          "CommandId.$"  = "$.ssm_command.Command.CommandId",
+          "InstanceId.$" = "$.ssm_command.Command.InstanceIds[0]"
+        },
+        ResultPath = "$.ssm_command_status", # Save the output of this status check
+        Next       = "IsRestoreComplete"
+      },
+      # This state checks the result and decides whether to loop or continue.
+      IsRestoreComplete = {
+        Type = "Choice",
+        Choices = [
+          {
+            # If the status is "Success", we can move on.
+            Variable     = "$.ssm_command_status.Status",
+            StringEquals = "Success",
+            Next         = "UpdateDnsRecord"
+          },
+          {
+            # If the status is still "InProgress", loop back to the wait state.
+            Variable     = "$.ssm_command_status.Status",
+            StringEquals = "InProgress",
+            Next         = "WaitBeforeCheckingStatus"
+          }
+        ],
+        # If the status is anything else (Failed, Cancelled, etc.), fail the whole workflow.
+        Default = "FailState"
       },
       UpdateDnsRecord = {
         Type     = "Task",
         Resource = "arn:aws:states:::lambda:invoke",
         Parameters = {
-          FunctionName = aws_lambda_function.update_dns_lambda.function_name
+          FunctionName = aws_lambda_function.update_dns_lambda.function_name,
+          "Payload.$"  = "$"
         },
         Next = "TerminateRestoreHost"
       },
@@ -108,9 +151,14 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
         Type     = "Task",
         Resource = "arn:aws:states:::aws-sdk:ec2:terminateInstances",
         Parameters = {
-          InstanceIds = [aws_instance.restore_host.id]
+          "InstanceIds.$" = "$.[instance_id]"
         },
         End = true
+      },
+      FailState = {
+        Type  = "Fail",
+        Error = "RestoreScriptFailed",
+        Cause = "The SSM Run Command did not complete successfully."
       }
     }
   })
