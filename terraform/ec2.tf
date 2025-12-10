@@ -19,7 +19,7 @@ resource "aws_instance" "backend_server" {
   provider             = aws.primary
   ami                  = data.aws_ami.amazon_linux_2023.id
   instance_type        = "t2.micro"
-  key_name             = "disaster-recovery-key" # Make sure this key exists in your AWS account
+  key_name             = "barrios-key-pair" # Make sure this key exists in your AWS account
   iam_instance_profile = aws_iam_instance_profile.ec2_codedeploy_profile.name
 
   # CRITICAL: This places the instance in your VPC and assigns the correct firewall rules
@@ -40,7 +40,7 @@ resource "aws_instance" "frontend_server" {
   provider             = aws.primary
   ami                  = data.aws_ami.amazon_linux_2023.id
   instance_type        = "t2.micro"
-  key_name             = "disaster-recovery-key" # Make sure this key exists in your AWS account
+  key_name             = "barrios-key-pair" # Make sure this key exists in your AWS account
   iam_instance_profile = aws_iam_instance_profile.ec2_codedeploy_profile.name
   
   # CRITICAL: This places the instance in your VPC and assigns the correct firewall rules
