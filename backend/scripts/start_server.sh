@@ -1,7 +1,6 @@
 #!/bin/bash
 # This script starts the application server.
 
-# Navigate to the application directory where the files were deployed
 cd /opt/app/backend
 
 if [ -f .env ]; then
