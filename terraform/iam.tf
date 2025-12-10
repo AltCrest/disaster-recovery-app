@@ -161,17 +161,14 @@ resource "aws_iam_policy" "s3_dashboard_read_policy" {
   policy   = jsonencode({
     Version = "2012-10-17",
     Statement = [
-      # Permissions for the bucket itself
       {
-        Action   = ["s3:GetBucketReplicationConfiguration", "s3:ListBucket"],
+        Sid      = "AllowBucketLevelReads",
         Effect   = "Allow",
+        Action   = [
+          "s3:GetBucketReplicationConfiguration",
+          "s3:ListBucket"
+        ],
         Resource = aws_s3_bucket.primary_data.arn
-      },
-      # Permissions for the objects inside the bucket
-      {
-        Action   = ["s3:GetObject"],
-        Effect   = "Allow",
-        Resource = "${aws_s3_bucket.primary_data.arn}/*"
       }
     ]
   })
