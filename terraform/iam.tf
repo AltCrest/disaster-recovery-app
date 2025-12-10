@@ -275,6 +275,8 @@ resource "aws_iam_role_policy" "step_function_policy" {
   })
 }
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_iam_role_policy_attachment" "lambda_ec2_access" {
   provider   = aws.primary
   role       = aws_iam_role.failover_lambda_role.name
