@@ -134,6 +134,13 @@ def initiate_failover():
     except Exception as e:
         logging.error(f"Failed to start Step Function execution: {e}")
         return jsonify({"message": "An error occurred while trying to initiate the failover."}), 500
+    
+@app.route("/")
+def hello():
+    """
+    A simple health check endpoint that the ALB can hit.
+    """
+    return "Hello, the backend is running!", 200 # Return a 200 OK status
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
