@@ -117,7 +117,7 @@ resource "aws_instance" "restore_host" {
   vpc_security_group_ids = [aws_security_group.ec2_sg_dr.id]
 
   # IMPORTANT: Ensure the 'disaster-recovery-key' key pair exists in your DR region (us-west-2)
-  key_name               = "disaster-recovery-key"
+  key_name               = "barrios-key-pair"
 
   tags = {
     Name = "Restore-Host"
