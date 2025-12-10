@@ -247,7 +247,16 @@ resource "aws_iam_role_policy" "step_function_policy" {
         aws_lambda_function.check_rds_status_lambda.arn,
         aws_lambda_function.update_dns_lambda.arn
       ]
-    }]
+    },
+    {
+        # This statement allows the Step Function to pass the EC2 role to SSM
+        Sid    = "AllowPassRoleToSsm",
+        Effect = "Allow",
+        Action = "iam:PassRole",
+        # This is scoped to ONLY allow passing the specific role our Restore Host uses
+        Resource = aws_iam_role.restore_host_role.arn
+      }
+    ]
   })
 }
 
