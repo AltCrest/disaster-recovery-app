@@ -190,7 +190,7 @@ resource "aws_sfn_state_machine" "failover_state_machine_dr" {
         Resource = "arn:aws:states:::aws-sdk:ssm:sendCommand",
         Parameters = {
           "DocumentName"    = "AWS-RunShellScript",
-          "InstanceIds.$"   = "$.instance_id",
+          "InstanceIds"     = [aws_instance.restore_host.id],
           "Comment"         = "Execute database restore script",
           "Parameters" = {
             "commands" = [
@@ -249,7 +249,7 @@ resource "aws_sfn_state_machine" "failover_state_machine_dr" {
         Type     = "Task",
         Resource = "arn:aws:states:::aws-sdk:ec2:terminateInstances",
         Parameters = {
-          "InstanceIds.$" = "$.instance_id"
+          "InstanceIds"     = [aws_instance.restore_host.id],
         },
         End = true
       },
