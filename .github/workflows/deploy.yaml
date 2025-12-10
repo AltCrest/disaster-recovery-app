@@ -52,8 +52,24 @@ jobs:
 
       - name: Create backend deployment package
         run: |
-          cd backend
-          zip -r ../backend-deployment.zip . -x "venv/*" "__pycache__/*"
+          # Step 1: Create a clean staging directory for our package
+          mkdir -p staging
+
+          # Step 2: Explicitly copy ONLY the files we need for deployment.
+          # This is safer and avoids including unnecessary files.
+          cp backend/app.py staging/
+          cp backend/requirements.txt staging/
+          cp backend/appspec.yml staging/
+          cp -r backend/scripts staging/
+
+          # This is the critical step. Explicitly copy the .env file.
+          # The '|| true' ensures the command doesn't fail if the .env file is missing locally,
+          # though you should always have it.
+          cp backend/.env staging/ || true
+
+          # Step 3: Go into the clean staging directory and zip its contents.
+          cd staging
+          zip -r ../backend-deployment.zip .
 
       - name: Upload backend package to S3
         run: |

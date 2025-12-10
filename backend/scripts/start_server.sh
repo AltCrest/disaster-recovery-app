@@ -16,7 +16,6 @@ if [ -f "$APP_DIR/.env" ]; then
   set +o allexport
 else
   echo "CRITICAL ERROR: .env file not found at $APP_DIR/.env. Cannot start server."
-  # Exit with a non-zero code to make the CodeDeploy deployment FAIL
   exit 1
 fi
 
