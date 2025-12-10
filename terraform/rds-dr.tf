@@ -125,7 +125,6 @@ resource "aws_instance" "restore_host" {
 }
 
 # --- Terraform Output for the Instance ID ---
-# This makes it easy to find the instance ID for your Step Function.
 output "restore_host_instance_id" {
   description = "The ID of the EC2 instance used for database restoration."
   value       = aws_instance.restore_host.id
