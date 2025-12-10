@@ -50,6 +50,24 @@ output "backend_server_ip" {
   value = aws_instance.backend_server.public_ip
 }
 
+# Attachment for the Backend Server
+# This tells the backend target group to register the backend EC2 instance.
+resource "aws_lb_target_group_attachment" "backend_attachment" {
+  provider         = aws.primary
+  target_group_arn = aws_lb_target_group.app_tg_backend.arn
+  target_id        = aws_instance.backend_server.id
+  port             = 5000 # The port the backend server is listening on
+}
+
+# Attachment for the Frontend Server
+# This tells the frontend target group to register the frontend EC2 instance.
+resource "aws_lb_target_group_attachment" "frontend_attachment" {
+  provider         = aws.primary
+  target_group_arn = aws_lb_target_group.app_tg_frontend.arn
+  target_id        = aws_instance.frontend_server.id
+  port             = 80 # The port the frontend server is listening on
+}
+
 output "frontend_server_ip" {
   value = aws_instance.frontend_server.public_ip
 }
