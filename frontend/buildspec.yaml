@@ -10,7 +10,6 @@ phases:
     commands:
       - npm run build
 artifacts:
-  # The base-directory is the final build output
   base-directory: 'frontend/build'
   files:
     - '**/*'

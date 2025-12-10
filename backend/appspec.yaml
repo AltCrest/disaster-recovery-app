@@ -9,7 +9,7 @@ hooks:
       timeout: 300
       runas: root
   AfterInstall:
-    - location: scripts/install_dependencies.sh # We will create this script
+    - location: scripts/install_dependencies.sh 
       timeout: 300
       runas: root
   ApplicationStart:
