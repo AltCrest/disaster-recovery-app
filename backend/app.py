@@ -130,8 +130,6 @@ def get_status():
 
 # --- Add these new components ---
 #step_functions_client = boto3.client('stepfunctions', region_name=PRIMARY_REGION)
-# The ARN you copied from the terraform output
-#STATE_MACHINE_ARN = os.getenv('STATE_MACHINE_ARN')
 @app.route('/api/initiate-failover', methods=['POST'])
 def initiate_failover():
     """Triggers the AWS Step Functions state machine for failover."""
