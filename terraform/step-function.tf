@@ -60,44 +60,87 @@ resource "aws_lambda_function" "update_dns_lambda" {
 
 # --- The Step Function State Machine Definition ---
 # This orchestrates the Lambda functions in the correct order.
+# In step-function.tf, replace the state machine resource
+
 resource "aws_sfn_state_machine" "failover_state_machine" {
-  provider     = aws.primary
-  name         = "FailoverOrchestrator"
-  role_arn     = aws_iam_role.step_function_role.arn # References the role from iam.tf
-  definition   = jsonencode({
-    Comment = "A state machine to orchestrate DR failover."
-    StartAt = "ProvisionNewRds"
+  provider   = aws.primary
+  name       = "RealFailoverOrchestrator"
+  role_arn   = aws_iam_role.step_function_role.arn
+  definition = jsonencode({
+    Comment = "A state machine to orchestrate a real DR failover..."
+    StartAt = "ProvisionRestoreHost" # This state now just passes the ID
     States = {
-      ProvisionNewRds = {
+      ProvisionRestoreHost = {
+        Type = "Pass"
+        # This dynamically gets the ID of the restore host we just created
+        Result = {
+          "instance_id" = aws_instance.restore_host.id
+        }
+        Next = "TriggerRestoreScript"
+      },
+      TriggerRestoreScript = {
         Type     = "Task"
-        Resource = aws_lambda_function.provision_rds_lambda.arn
-        Next     = "WaitForRdsAvailable"
+        Resource = "arn:aws:states:::aws-sdk:ssm:sendCommand"
+        Parameters = {
+          "DocumentName" = "AWS-RunShellScript"
+          # This now correctly references the output of the previous state
+          "InstanceIds.$"  = "$.[instance_id]" 
+          "Parameters" = {
+            "commands" = [
+              # This command clones your repo and runs the restore script
+              "git clone https://github.com/your-repo/disaster-recovery-app.git",
+              "bash disaster-recovery-app/restore_scripts/run_restore.sh ${{ aws_s3_bucket.dr_data.id }} ${{ var.dr_region }} ${{ aws_db_subnet_group.dr.name }} ${{ aws_security_group.ec2_sg_dr.id }}"
+            ]
+          }
+        }
+        Next = "WaitForRestoreToComplete"
       },
-      WaitForRdsAvailable = {
-        Type     = "Wait"
-        Seconds  = 30 # Wait for 30 seconds between checks
-        Next     = "CheckRdsStatus"
+      WaitForRestoreToComplete = {
+        Type    = "Wait"
+        Seconds = 60 # Wait for 1 minute before checking status
+        Next    = "GetRestoreStatusCommand"
       },
-      CheckRdsStatus = {
+      GetRestoreStatusCommand = {
         Type     = "Task"
-        Resource = aws_lambda_function.check_rds_status_lambda.arn
-        Next     = "IsRdsAvailable"
+        Resource = "arn:aws:states:::aws-sdk:ssm:getCommandInvocation"
+        Parameters = {
+          "CommandId" = "$.CommandId"
+          "InstanceId" = "$.instance_id"
+        }
+        Next = "IsRestoreComplete"
       },
-      IsRdsAvailable = {
+      IsRestoreComplete = {
         Type = "Choice"
         Choices = [
           {
-            Variable     = "$.status"
-            StringEquals = "AVAILABLE"
-            Next         = "UpdateDnsRecord"
+            Variable = "$.Status"
+            StringEquals = "Success"
+            Next = "UpdateDnsRecord"
+          },
+          {
+            Variable = "$.Status"
+            StringEquals = "InProgress"
+            Next = "WaitForRestoreToComplete"
           }
         ]
-        Default = "WaitForRdsAvailable"
+        Default = "FailState" # If it fails, go to a fail state
       },
       UpdateDnsRecord = {
+        # ... (this part remains the same) ...
+        Next = "TerminateRestoreHost"
+      },
+      TerminateRestoreHost = {
         Type     = "Task"
-        Resource = aws_lambda_function.update_dns_lambda.arn
-        End      = true
+        Resource = "arn:aws:states:::aws-sdk:ec2:terminateInstances"
+        Parameters = {
+          "InstanceIds" = ["$.instance_id"]
+        }
+        End = true
+      },
+      FailState = {
+        Type = "Fail"
+        Error = "RestoreScriptFailed"
+        Cause = "The SSM Run Command failed to complete successfully."
       }
     }
   })

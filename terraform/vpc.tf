@@ -60,6 +60,26 @@ resource "aws_subnet" "dr_public_b" {
   }
 }
 
+resource "aws_subnet" "dr_private_a" {
+  provider          = aws.dr
+  vpc_id            = aws_vpc.dr.id
+  cidr_block        = "10.1.101.0/24" # A new, non-overlapping IP range
+  availability_zone = "${var.dr_region}a"
+  tags = {
+    Name = "dr-private-subnet-a"
+  }
+}
+
+resource "aws_subnet" "dr_private_b" {
+  provider          = aws.dr
+  vpc_id            = aws_vpc.dr.id
+  cidr_block        = "10.1.102.0/24" # A new, non-overlapping IP range
+  availability_zone = "${var.dr_region}b"
+  tags = {
+    Name = "dr-private-subnet-b"
+  }
+}
+
 # --- Primary Region Networking ---
 resource "aws_internet_gateway" "primary_gw" {
   provider = aws.primary

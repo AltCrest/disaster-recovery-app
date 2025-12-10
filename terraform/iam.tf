@@ -250,3 +250,15 @@ resource "aws_iam_role_policy" "step_function_policy" {
     }]
   })
 }
+
+resource "aws_iam_role_policy_attachment" "lambda_ec2_access" {
+  provider   = aws.primary
+  role       = aws_iam_role.failover_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess" # Scope down in production
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_ssm_access" {
+  provider   = aws.primary
+  role       = aws_iam_role.failover_lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMFullAccess" # Scope down in production
+}
