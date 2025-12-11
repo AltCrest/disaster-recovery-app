@@ -120,6 +120,12 @@ resource "aws_iam_role_policy_attachment" "restore_host_s3_attach" {
   policy_arn = aws_iam_policy.restore_host_s3_policy.arn
 }
 
+resource "aws_iam_role_policy_attachment" "restore_host_rds_policy" {
+  provider   = aws.dr
+  role       = aws_iam_role.restore_host_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
+}
+
 # The instance profile is what links the role to the EC2 instance.
 resource "aws_iam_instance_profile" "restore_host_profile" {
   provider = aws.dr
