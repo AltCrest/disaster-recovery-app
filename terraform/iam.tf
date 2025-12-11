@@ -196,6 +196,39 @@ resource "aws_iam_role" "failover_lambda_role" {
   })
 }
 
+# --- IAM Role for the DR Failover Lambda Functions (us-west-2) ---
+resource "aws_iam_role" "failover_lambda_role_dr" {
+  provider           = aws.dr # <-- CRITICAL: Creates this role in the DR region
+  name               = "FailoverLambdaExecutionRole-DR"
+  assume_role_policy = jsonencode({
+    Version   = "2012-10-17",
+    Statement = [{
+      Action    = "sts:AssumeRole",
+      Effect    = "Allow",
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+}
+
+# Policy for basic Lambda logging to CloudWatch in the DR region
+resource "aws_iam_role_policy_attachment" "lambda_basic_execution_dr" {
+  provider   = aws.dr
+  role       = aws_iam_role.failover_lambda_role_dr.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_rds_access_dr" {
+  provider   = aws.dr
+  role       = aws_iam_role.failover_lambda_role_dr.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_route53_access_dr" {
+  provider   = aws.dr
+  role       = aws_iam_role.failover_lambda_role_dr.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
+}
+
 # Policy for basic Lambda logging to CloudWatch
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   provider   = aws.primary
