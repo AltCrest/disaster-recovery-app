@@ -128,8 +128,6 @@ def get_status():
         "backupDetails": backup_info
     })
 
-# --- Add these new components ---
-#step_functions_client = boto3.client('stepfunctions', region_name=PRIMARY_REGION)
 @app.route('/api/initiate-failover', methods=['POST'])
 def initiate_failover():
     """Triggers the AWS Step Functions state machine for failover."""
@@ -160,7 +158,6 @@ def initiate_failover():
 
 # ===================================================================
 # --- Main Execution Block ---
-# This allows running the app directly with `python app.py` for local dev.
 # ===================================================================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

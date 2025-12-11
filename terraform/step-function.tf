@@ -60,6 +60,25 @@ resource "aws_lambda_function" "update_dns_lambda" {
   }
 }
 
+resource "aws_lambda_function" "update_dns_lambda_dr" {
+  provider      = aws.dr 
+  filename      = data.archive_file.failover_lambda_zip.output_path
+  function_name = "update-dns-record-dr" # A unique name
+  role          = aws_iam_role.failover_lambda_role_dr.arn # Use the DR region IAM role
+  handler       = "failover_orchestrator.update_dns_record" # The code is the same
+  runtime       = "python3.9"
+  timeout       = 30
+  
+  environment {
+    variables = {
+      ROUTE53_HOSTED_ZONE_ID = "YOUR_HOSTED_ZONE_ID"
+      DNS_RECORD_NAME        = "app.yourdomain.com"
+      DR_ALB_DNS_NAME        = aws_lb.app_alb_dr.dns_name
+      DR_ALB_ZONE_ID         = aws_lb.app_alb_dr.zone_id
+    }
+  }
+}
+
 # --- The Primary Step Function State Machine Definition ---
 resource "aws_sfn_state_machine" "failover_state_machine" {
   provider     = aws.primary
@@ -162,7 +181,7 @@ resource "aws_sfn_state_machine" "failover_state_machine" {
 # ===================================================================
 
 resource "aws_sfn_state_machine" "failover_state_machine_dr" {
-  provider     = aws.dr # <-- LIVES IN THE DR REGION
+  provider     = aws.dr
   name         = "FailoverOrchestrator-DR" # A distinct name
   role_arn     = aws_iam_role.step_function_role_dr.arn # References a DR role defined in iam.tf
   
@@ -235,12 +254,9 @@ resource "aws_sfn_state_machine" "failover_state_machine_dr" {
       },
       UpdateDnsRecord = {
         Type     = "Task",
-        # NOTE: This assumes a Lambda for DNS updates also exists in the DR region.
-        # For simplicity, we can point to the primary one, but a fully resilient
-        # setup would have a duplicate update_dns_lambda_dr resource.
         Resource = "arn:aws:states:::lambda:invoke",
         Parameters = {
-          FunctionName = aws_lambda_function.update_dns_lambda.function_name,
+          FunctionName = aws_lambda_function.update_dns_lambda_dr.function_name,
           "Payload.$"  = "$"
         },
         Next = "TerminateRestoreHost"

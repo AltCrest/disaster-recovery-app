@@ -345,7 +345,10 @@ resource "aws_iam_role_policy" "step_function_policy_dr" {
         Sid    = "AllowLambdaInvocation",
         Effect = "Allow",
         Action = "lambda:InvokeFunction",
-        Resource = aws_lambda_function.update_dns_lambda.arn
+        Resource = [
+            aws_lambda_function.update_dns_lambda.arn,
+            aws_lambda_function.update_dns_lambda_dr.arn
+        ]
       }
     ]
   })

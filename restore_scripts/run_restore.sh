@@ -13,7 +13,7 @@ DB_SUBNET_GROUP_NAME="$3"
 DB_SECURITY_GROUP_ID="$4"
 DB_INSTANCE_IDENTIFIER="restored-primary-db"
 DB_USER="adminuser"
-DB_PASSWORD="YourSecurePassword123" # In production, get this from Secrets Manager
+DB_PASSWORD="YourSecurePassword123" 
 
 # --- 1. Install necessary tools ---
 echo "Installing PostgreSQL client..."

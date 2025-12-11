@@ -13,10 +13,10 @@ rds_client = boto3.client('rds')
 route53_client = boto3.client('route53')
 
 # --- Configuration from Environment Variables ---
-DR_RDS_INSTANCE_NAME = os.environ.get('DR_RDS_INSTANCE_NAME', 'dr-replica-db') # A unique name for the new primary
+DR_RDS_INSTANCE_NAME = os.environ.get('DR_RDS_INSTANCE_NAME', 'dr-replica-db')
 SOURCE_REPLICA_ARN = os.environ.get('SOURCE_REPLICA_ARN')
 ROUTE53_HOSTED_ZONE_ID = os.environ.get('ROUTE53_HOSTED_ZONE_ID')
-DNS_RECORD_NAME = os.environ.get('DNS_RECORD_NAME') # e.g., 'app.yourdomain.com'
+DNS_RECORD_NAME = os.environ.get('DNS_RECORD_NAME')
 DR_ALB_DNS_NAME = os.environ.get('DR_ALB_DNS_NAME')
 DR_ALB_ZONE_ID = os.environ.get('DR_ALB_ZONE_ID') 
 
@@ -29,13 +29,9 @@ def provision_new_rds(event, context):
     """
     dr_db_identifier = os.environ.get('DR_RDS_INSTANCE_NAME', 'restored-primary-db')
     logger.info(f"Initiating provisioning for new RDS instance: {dr_db_identifier}")
-
-    # In a real-world scenario, you would add:
-    # rds_client.create_db_instance(...)
     
     logger.info("Simulation: Provisioning signal sent. The instance will be created via other means or manually for this exercise.")
     
-    # We return the identifier so the next step knows which DB to check on.
     return {'dr_db_identifier': dr_db_identifier, 'status': 'PROVISIONING_STARTED'}
 
 def check_rds_status(event, context):
@@ -46,8 +42,6 @@ def check_rds_status(event, context):
     logger.info(f"Checking status for RDS instance: {db_identifier}")
 
     try:
-        # We will use the DR replica's ARN to find its identifier
-        # This is a simplified approach.
         replica_details = rds_client.describe_db_instances(DBInstanceIdentifier=DR_RDS_INSTANCE_NAME)
         instance_status = replica_details['DBInstances'][0]['DBInstanceStatus']
         
@@ -56,7 +50,6 @@ def check_rds_status(event, context):
         if instance_status == 'available':
             return {'status': 'AVAILABLE'}
         else:
-            # This will cause the Step Function's "wait" state to continue waiting
             return {'status': 'PROMOTING'}
 
     except Exception as e:
@@ -81,7 +74,7 @@ def update_dns_record(event, context):
                 'Comment': 'Automated DR Failover',
                 'Changes': [
                     {
-                        'Action': 'UPSERT', # Creates the record if it doesn't exist, updates it if it does
+                        'Action': 'UPSERT',
                         'ResourceRecordSet': {
                             'Name': DNS_RECORD_NAME,
                             'Type': 'A',
