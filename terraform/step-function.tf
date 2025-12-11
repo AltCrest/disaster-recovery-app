@@ -61,7 +61,6 @@ resource "aws_lambda_function" "update_dns_lambda" {
 }
 
 # --- The Primary Step Function State Machine Definition ---
-# This is the original state machine, now corrected.
 resource "aws_sfn_state_machine" "failover_state_machine" {
   provider     = aws.primary
   name         = "FailoverOrchestrator"
@@ -168,7 +167,6 @@ resource "aws_sfn_state_machine" "failover_state_machine_dr" {
   role_arn     = aws_iam_role.step_function_role_dr.arn # References a DR role defined in iam.tf
   
   # The definition is IDENTICAL to the primary state machine.
-  # Terraform will correctly substitute the DR region resources where needed.
   definition   = jsonencode({
     Comment = "A state machine in the DR region to orchestrate failover."
     StartAt = "ProvisionRestoreHost"
@@ -195,6 +193,7 @@ resource "aws_sfn_state_machine" "failover_state_machine_dr" {
           "Parameters" = {
             "commands" = [
               "sudo yum install -y git",
+              "rm -rf disaster-recovery-app", 
               "git clone https://github.com/AltCrest/disaster-recovery-app.git",
               "bash disaster-recovery-app/restore_scripts/run_restore.sh ${aws_s3_bucket.dr_data.id} ${var.dr_region} ${aws_db_subnet_group.dr.name} ${aws_security_group.ec2_sg_dr.id}"
             ]
