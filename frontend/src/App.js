@@ -1,4 +1,4 @@
-// frontend/src/App.js
+// frontend/src/App.js Trigger
 
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
