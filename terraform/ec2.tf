@@ -80,3 +80,5 @@ output "backend_server_ip" {
 output "frontend_server_ip" {
   value = aws_instance.frontend_server.public_ip
 }
+
+# trigger
