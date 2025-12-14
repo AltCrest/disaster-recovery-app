@@ -1,4 +1,4 @@
-# backend/app.py Trigger
+# backend/app.py Triggers
 
 import os
 import boto3
